@@ -766,7 +766,7 @@ export default function WorkoutBuilder({ distance, reps, setDistance, setReps }:
                     : 'bg-gray-600 hover:bg-gray-500'
                 }`}
               >
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                   {includeWarmupCooldown && (
                     <FontAwesomeIcon icon={faCircleCheck} className="size-5 text-white" aria-hidden />
                   )}
@@ -792,7 +792,7 @@ export default function WorkoutBuilder({ distance, reps, setDistance, setReps }:
                     : 'bg-gray-600 hover:bg-gray-500'
                 }`}
               >
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                   {includeCoffmanStairs && (
                     <FontAwesomeIcon icon={faCircleCheck} className="size-5 text-white" aria-hidden />
                   )}

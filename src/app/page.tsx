@@ -293,7 +293,7 @@ export default function Home() {
       </Dialog>
 
       {distance && reps && warnings.length === 0 && (
-        <WorkoutBuilder key={`${distance}-${reps}`} distance={distance} reps={reps} />
+        <WorkoutBuilder distance={distance} reps={reps} />
       )}
     </div>
   );

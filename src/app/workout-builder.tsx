@@ -351,35 +351,33 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
   const [includeWarmupCooldown, setIncludeWarmupCooldown] = useState(false);
   const [includeCoffmanStairs, setIncludeCoffmanStairs] = useState(false);
   const [changeDialogOpen, setChangeDialogOpen] = useState(false);
-  const hasShownDialogThisSessionRef = useRef(false);
   const prevDistanceRepsRef = useRef<{ distance: number; reps: number }>({ distance, reps });
 
-  // Load user preference from localStorage
-  const [changePreference, setChangePreference] = useState<'delete' | 'keep' | null>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('workoutBuilderChangePreference') as 'delete' | 'keep') || null;
-    }
-    return null;
-  });
+  // User preference for how to handle changes.
+  // We remember a user's "keep" choice for the current session only.
+  // Do NOT persist the "delete" choice because the user wants to be
+  // prompted on each subsequent change when they choose delete.
+  const [changePreference, setChangePreference] = useState<'delete' | 'keep' | null>(null);
 
   // Watch for distance/reps changes
   useLayoutEffect(() => {
     const prev = prevDistanceRepsRef.current;
 
     if ((distance !== prev.distance || reps !== prev.reps) && hills.length > 0) {
-      if (!hasShownDialogThisSessionRef.current) {
-        // First change this session, always show the dialog
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setChangeDialogOpen(true);
-        hasShownDialogThisSessionRef.current = true;
-      } else if (changePreference === 'delete') {
-        // Dialog already shown, apply their preference
-        setHills([]);
+      // If the user explicitly chose to keep the workout for this session,
+      // do not prompt and do not delete.
+      if (changePreference === 'keep') {
+        // do nothing, user wants to keep their workout for this session
+      } else {
+        // Prompt the user on each change (unless they chose keep).
+        if (!changeDialogOpen) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setChangeDialogOpen(true);
+        }
       }
-      // else 'keep' - do nothing
     }
     prevDistanceRepsRef.current = { distance, reps };
-  }, [distance, reps, changePreference, hills.length]);
+  }, [distance, reps, changePreference, hills.length, changeDialogOpen]);
 
   const totalDist = hills.reduce((s, h) => s + h.size, 0);
   const allFourPresent = HILL_SIZES.every((s) => hills.some((h) => h.size === s));
@@ -455,10 +453,15 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
   }
 
   function handleChangePreference(preference: 'delete' | 'keep') {
-    localStorage.setItem('workoutBuilderChangePreference', preference);
-    setChangePreference(preference);
-    if (preference === 'delete') {
+    if (preference === 'keep') {
+      // Remember "keep" for the rest of this session
+      setChangePreference('keep');
+    } else {
+      // If they choose delete, clear the workout but do not persist the
+      // preference so we will prompt again on the next change.
       setHills([]);
+      // Ensure we do not record "delete" as a lasting preference
+      setChangePreference(null);
     }
     setChangeDialogOpen(false);
   }

@@ -8,9 +8,11 @@ import {
   faGripVertical,
   faWandMagicSparkles,
   faCircleCheck,
+  faCircle,
   faRotateLeft,
   faSortAmountDown,
   faShuffle,
+  faRuler,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   DndContext,
@@ -47,6 +49,30 @@ const HILL_COLORS: Record<HillSize, string> = {
   400: 'bg-yellow-300 dark:bg-yellow-700',
 };
 
+// Unit conversions
+const METERS_PER_MILE = 1609.344;
+const FEET_PER_MILE = 5280;
+const METERS_PER_KM = 1000;
+const FEET_PER_METER = FEET_PER_MILE / METERS_PER_MILE;
+
+// MCR location data
+const MCR_DISTANCE_KM = 3.55;
+const MCR_DISTANCE_M = MCR_DISTANCE_KM * METERS_PER_KM;
+const COFFMAN_STAIRS_DISTANCE = 140; // 70m up + 70m down
+
+// Conversion functions
+function metersToKm(m: number): number {
+  return m / METERS_PER_KM;
+}
+
+function kmToMiles(km: number): number {
+  return km * (METERS_PER_KM / METERS_PER_MILE);
+}
+
+function metersToFeet(m: number): number {
+  return m * FEET_PER_METER;
+}
+
 const HILL_BUTTON_COLORS: Record<HillSize, string> = {
   100: 'border-fuchsia-300 dark:border-fuchsia-700 bg-fuchsia-200 dark:bg-fuchsia-800 text-fuchsia-900 dark:text-fuchsia-100 hover:bg-fuchsia-300 dark:hover:bg-fuchsia-700 active:bg-fuchsia-400 dark:active:bg-fuchsia-600',
   200: 'border-sky-300 dark:border-sky-700 bg-sky-200 dark:bg-sky-800 text-sky-900 dark:text-sky-100 hover:bg-sky-300 dark:hover:bg-sky-700 active:bg-sky-400 dark:active:bg-sky-600',
@@ -54,7 +80,7 @@ const HILL_BUTTON_COLORS: Record<HillSize, string> = {
   400: 'border-yellow-300 dark:border-yellow-700 bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-100 hover:bg-yellow-300 dark:hover:bg-yellow-700 active:bg-yellow-400 dark:active:bg-yellow-600',
 };
 
-type SortType = 'longest' | 'shortest' | 'descending-ladder' | 'ascending-ladder' | 'random';
+type SortType = 'longest' | 'shortest' | 'descending-ladder' | 'ascending-ladder' | 'grouped-random' | 'maximum-chaos';
 
 function sortHills(hills: Hill[], type: SortType): Hill[] {
   const result = [...hills];
@@ -73,7 +99,7 @@ function sortHills(hills: Hill[], type: SortType): Hill[] {
         grouped[hill.size].push(hill);
       }
       result.length = 0;
-      let cycleIdx = 0;
+      const cycleIdx = 0;
       while (result.length < hills.length) {
         for (let i = 0; i < 4; i++) {
           const size = cycle[i];
@@ -91,7 +117,7 @@ function sortHills(hills: Hill[], type: SortType): Hill[] {
         grouped[hill.size].push(hill);
       }
       result.length = 0;
-      let cycleIdx = 0;
+      const cycleIdx = 0;
       while (result.length < hills.length) {
         for (let i = 0; i < 4; i++) {
           const size = cycle[i];
@@ -102,7 +128,24 @@ function sortHills(hills: Hill[], type: SortType): Hill[] {
       }
       break;
     }
-    case 'random': {
+    case 'grouped-random': {
+      const grouped: Record<HillSize, Hill[]> = { 100: [], 200: [], 300: [], 400: [] };
+      for (const hill of result) {
+        grouped[hill.size].push(hill);
+      }
+      // Shuffle the order of distances
+      const distances: HillSize[] = [100, 200, 300, 400];
+      for (let i = distances.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [distances[i], distances[j]] = [distances[j], distances[i]];
+      }
+      result.length = 0;
+      for (const distance of distances) {
+        result.push(...grouped[distance]);
+      }
+      break;
+    }
+    case 'maximum-chaos': {
       for (let i = result.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [result[i], result[j]] = [result[j], result[i]];
@@ -313,6 +356,9 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
   const [hills, setHills] = useState<Hill[]>([]);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [sortDialogOpen, setSortDialogOpen] = useState(false);
+  const [distanceDialogOpen, setDistanceDialogOpen] = useState(false);
+  const [includeWarmupCooldown, setIncludeWarmupCooldown] = useState(false);
+  const [includeCoffmanStairs, setIncludeCoffmanStairs] = useState(false);
 
   const totalDist = hills.reduce((s, h) => s + h.size, 0);
   const allFourPresent = HILL_SIZES.every((s) => hills.some((h) => h.size === s));
@@ -321,6 +367,16 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
   const distOver = totalDist > distance;
   const repsOver = hills.length > reps;
   const missingDistances = HILL_SIZES.filter((s) => !hills.some((h) => h.size === s));
+
+  // Distance calculations
+  const hillsDistanceM = totalDist;
+  const recoveryDistanceM = hillsDistanceM; // Jog back down
+  const warmupDistanceM = includeWarmupCooldown ? MCR_DISTANCE_M : 0;
+  const cooldownDistanceM = includeWarmupCooldown ? MCR_DISTANCE_M : 0;
+  const coffmanDistanceM = includeCoffmanStairs ? COFFMAN_STAIRS_DISTANCE : 0;
+  const totalDistanceM = hillsDistanceM + recoveryDistanceM + coffmanDistanceM + warmupDistanceM + cooldownDistanceM;
+  const totalDistanceKm = metersToKm(totalDistanceM);
+  const totalDistanceMiles = kmToMiles(totalDistanceKm);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -405,7 +461,11 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
             type="button"
             onClick={() => addHill(size)}
             disabled={!canAdd(size)}
-            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${HILL_BUTTON_COLORS[size]}`}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium cursor-pointer ${
+              canAdd(size)
+                ? HILL_BUTTON_COLORS[size]
+                : 'border-gray-400 dark:border-gray-600 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
+            }`}
           >
             <FontAwesomeIcon icon={faPlus} className="size-3" aria-hidden />
             {size}m
@@ -441,6 +501,15 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
             >
               <FontAwesomeIcon icon={faSortAmountDown} className="size-3" aria-hidden />
               Sort All
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDistanceDialogOpen(true)}
+              className="cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-gray-300 dark:border-white/15 bg-white dark:bg-white/5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10"
+            >
+              <FontAwesomeIcon icon={faRuler} className="size-3" aria-hidden />
+              Show Total Distance
             </button>
           </>
         )}
@@ -557,7 +626,7 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
                 className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
                 <div className="font-medium text-white">Longest hills first</div>
-                <div className="text-sm text-gray-300">400m, 300m, 200m, 100m</div>
+                <div className="text-sm text-gray-300">all 400s, then all 300s, etc</div>
               </button>
               <button
                 type="button"
@@ -565,7 +634,7 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
                 className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
                 <div className="font-medium text-white">Shortest hills first</div>
-                <div className="text-sm text-gray-300">100m, 200m, 300m, 400m</div>
+                <div className="text-sm text-gray-300">all 100s, then all 200s, etc</div>
               </button>
               <button
                 type="button"
@@ -585,11 +654,19 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
               </button>
               <button
                 type="button"
-                onClick={() => handleSort('random')}
+                onClick={() => handleSort('grouped-random')}
                 className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
-                <div className="font-medium text-white">Random</div>
-                <div className="text-sm text-gray-300">Shuffle all hills</div>
+                <div className="font-medium text-white">Grouped Random</div>
+                <div className="text-sm text-gray-300">Do all repeats of the same distance together, but shuffle the distances</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSort('maximum-chaos')}
+                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+              >
+                <div className="font-medium text-white font-serif">Maximum Chaos</div>
+                <div className="text-sm text-gray-300">Randomly shuffle everything</div>
               </button>
             </div>
             <button
@@ -599,6 +676,110 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
             >
               <FontAwesomeIcon icon={faXmark} className="size-4" />
               Cancel
+            </button>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      <Dialog open={distanceDialogOpen} onClose={() => setDistanceDialogOpen(false)} className="relative z-50">
+        <DialogBackdrop className="fixed inset-0 bg-black/60" />
+        <div className="fixed inset-x-0 top-0 flex justify-center pt-2">
+          <DialogPanel className="bg-gray-700 rounded-lg p-6 mx-4 w-full max-w-sm shadow-xl text-left max-h-[90vh] overflow-y-auto">
+            <DialogTitle className="text-lg font-medium text-white mb-4">
+              Total Distance
+            </DialogTitle>
+
+            <div className="space-y-3 mb-4">
+              {/* Workout breakdown */}
+              <div className="bg-gray-600 rounded-lg p-3 space-y-1 text-xs">
+                <h3 className="font-semibold text-white mb-1">Workout Breakdown</h3>
+                <div className="flex justify-between text-gray-300">
+                  <span>Hills (up)</span>
+                  <span>{kmToMiles(hillsDistanceM / 1000).toFixed(2)} mi ({(hillsDistanceM / 1000).toFixed(2)} km)</span>
+                </div>
+                <div className="flex justify-between text-gray-300">
+                  <span>Recovery (down)</span>
+                  <span>{kmToMiles(recoveryDistanceM / 1000).toFixed(2)} mi ({(recoveryDistanceM / 1000).toFixed(2)} km)</span>
+                </div>
+                {includeCoffmanStairs && (
+                  <div className="flex justify-between text-gray-300">
+                    <span>Coffman Stairs</span>
+                    <span>0.09 mi (0.14 km)</span>
+                  </div>
+                )}
+              </div>
+
+            {/* Warmup/Cooldown toggle */}
+              <button
+                type="button"
+                onClick={() => setIncludeWarmupCooldown(!includeWarmupCooldown)}
+                className={`w-full flex items-start gap-3 rounded-lg p-3 text-left transition-colors ${
+                  includeWarmupCooldown
+                    ? 'bg-indigo-600 hover:bg-indigo-500'
+                    : 'bg-gray-600 hover:bg-gray-500'
+                }`}
+              >
+                <div className="flex-shrink-0">
+                  {includeWarmupCooldown && (
+                    <FontAwesomeIcon icon={faCircleCheck} className="size-5 text-white" aria-hidden />
+                  )}
+                  {!includeWarmupCooldown && (
+                    <FontAwesomeIcon icon={faCircle} className="size-5 text-gray-400" aria-hidden />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-white">Include warmup and cooldown from/to MCR-NE</div>
+                  <div className="text-sm text-gray-200 mt-0.5">+ {(MCR_DISTANCE_KM * 0.621371).toFixed(2)} miles ({MCR_DISTANCE_KM.toFixed(2)} km) each way</div>
+                </div>
+              </button>
+
+              {/* Cooldown note is included above */}
+
+              {/* Coffman Stairs toggle */}
+              <button
+                type="button"
+                onClick={() => setIncludeCoffmanStairs(!includeCoffmanStairs)}
+                className={`w-full flex items-start gap-3 rounded-lg p-3 text-left transition-colors ${
+                  includeCoffmanStairs
+                    ? 'bg-indigo-600 hover:bg-indigo-500'
+                    : 'bg-gray-600 hover:bg-gray-500'
+                }`}
+              >
+                <div className="flex-shrink-0">
+                  {includeCoffmanStairs && (
+                    <FontAwesomeIcon icon={faCircleCheck} className="size-5 text-white" aria-hidden />
+                  )}
+                  {!includeCoffmanStairs && (
+                    <FontAwesomeIcon icon={faCircle} className="size-5 text-gray-400" aria-hidden />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-white">Include Coffman Stairs Finisher</div>
+                  <div className="text-sm text-gray-200 mt-0.5">+ 230&apos; (70 m) each way</div>
+                </div>
+              </button>
+
+              {/* Totals */}
+              <div className="bg-indigo-900/40 border border-indigo-500/30 rounded-lg p-3 space-y-1">
+                <h3 className="font-semibold text-white text-sm">Total Distance</h3>
+                <div className="flex items-baseline gap-2">
+                  <div className="text-lg font-semibold text-indigo-300">
+                    {totalDistanceMiles.toFixed(2)} mi
+                  </div>
+                  <div className="text-xs text-indigo-200">
+                    ({totalDistanceKm.toFixed(2)} km)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setDistanceDialogOpen(false)}
+              className="cursor-pointer rounded-md bg-gray-600 px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-500 hover:text-white flex items-center gap-2 w-full justify-center"
+            >
+              <FontAwesomeIcon icon={faXmark} className="size-4" />
+              Close
             </button>
           </DialogPanel>
         </div>

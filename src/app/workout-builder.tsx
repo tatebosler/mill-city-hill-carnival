@@ -341,9 +341,11 @@ function SortableHillItem({
 interface WorkoutBuilderProps {
   distance: number;
   reps: number;
+  setDistance: (n: number) => void;
+  setReps: (n: number) => void;
 }
 
-export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) {
+export default function WorkoutBuilder({ distance, reps, setDistance, setReps }: WorkoutBuilderProps) {
   const [hills, setHills] = useState<Hill[]>([]);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [sortDialogOpen, setSortDialogOpen] = useState(false);
@@ -378,6 +380,14 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
     }
     prevDistanceRepsRef.current = { distance, reps };
   }, [distance, reps, changePreference, hills.length, changeDialogOpen]);
+
+  function undoChange() {
+    const prev = prevDistanceRepsRef.current;
+    // Revert parent-controlled distance/reps to previous values
+    setDistance(prev.distance);
+    setReps(prev.reps);
+    setChangeDialogOpen(false);
+  }
 
   const totalDist = hills.reduce((s, h) => s + h.size, 0);
   const allFourPresent = HILL_SIZES.every((s) => hills.some((h) => h.size === s));
@@ -445,6 +455,9 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
 
   function handleReset() {
     setHills([]);
+    // Reset the stored session preference so the user is prompted again
+    // on subsequent distance/reps changes.
+    setChangePreference(null);
   }
 
   function handleSort(type: SortType) {
@@ -818,7 +831,7 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
         </div>
       </Dialog>
 
-      <Dialog open={changeDialogOpen} onClose={() => setChangeDialogOpen(false)} className="relative z-50">
+      <Dialog open={changeDialogOpen} onClose={() => undoChange()} className="relative z-50">
         <DialogBackdrop className="fixed inset-0 bg-black/60" />
         <div className="fixed inset-x-0 top-0 flex justify-center pt-2">
           <DialogPanel className="bg-gray-700 rounded-lg p-6 mx-4 w-full max-w-sm shadow-xl text-left">
@@ -828,25 +841,29 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
             <p className="text-sm text-gray-300 mb-4">
               You changed the target distance or number of hills. What would you like to do?
             </p>
-            <div className="flex flex-col gap-2 mb-4">
+              <div className="flex flex-col gap-2 mb-4">
               <button
                 type="button"
                 onClick={() => handleChangePreference('delete')}
-                className="cursor-pointer w-full text-left rounded-md bg-red-600 px-4 py-2 hover:bg-red-500 focus:outline-2 focus:outline-indigo-500 text-white font-medium"
+                className="cursor-pointer w-full text-left rounded-md bg-red-800 px-4 py-2 hover:bg-red-700 active:bg-red-600 focus:outline-2 focus:outline-red-700 text-white font-medium"
               >
                 Delete my workout
               </button>
               <button
                 type="button"
                 onClick={() => handleChangePreference('keep')}
-                className="cursor-pointer w-full text-left rounded-md bg-green-600 px-4 py-2 hover:bg-green-500 focus:outline-2 focus:outline-indigo-500 text-white font-medium"
+                className="cursor-pointer w-full text-left rounded-md bg-green-800 px-4 py-2 hover:bg-green-700 active:bg-green-600 focus:outline-2 focus:outline-green-700 text-white font-medium"
               >
                 Keep my workout (I&apos;ll fix it)
               </button>
+              <button
+                type="button"
+                onClick={() => undoChange()}
+                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-gray-600 text-white font-medium"
+              >
+                Undo this change
+              </button>
             </div>
-            <p className="text-xs text-gray-400">
-              Your choice will be remembered until you reload the page.
-            </p>
           </DialogPanel>
         </div>
       </Dialog>

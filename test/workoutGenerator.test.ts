@@ -46,5 +46,9 @@ describe('workout generator', () => {
     const total = hills.reduce((s, h) => s + h.size, 0);
     expect(hills.length).toBe(10);
     expect(total).toBe(2500);
+
+    // ensure the distribution (when sorted smallest→largest) matches expectation
+    const sorted = hills.map((h) => h.size).sort((a, b) => a - b);
+    expect(sorted).toEqual([100, 100, 200, 200, 200, 300, 300, 300, 400, 400]);
   });
 });

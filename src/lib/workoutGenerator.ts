@@ -50,23 +50,42 @@ export function selectHillsConsistency(dist: number, count: number): HillSize[] 
 }
 
 export function selectHillsVariety(dist: number, count: number): HillSize[] {
-  const SIZES = [400, 300, 200, 100] as const;
+  // Solve for counts of each hill size: c400, c300, c200, c100
+  // such that c400 + c300 + c200 + c100 = count
+  // and 400*c400 + 300*c300 + 200*c200 + 100*c100 = dist
+  // Iterate feasible counts (small search space: count <= 30) and pick the solution
+  // with the most even distribution (min variance from mean count).
 
-  function helper(remainingDist: number, remainingCount: number, acc: HillSize[]): HillSize[] | null {
-    if (remainingCount === 0) return remainingDist === 0 ? acc : null;
-    if (remainingDist < remainingCount * 100) return null;
-    if (remainingDist > remainingCount * 400) return null;
+  let best: { counts: [number, number, number, number]; score: number } | null = null;
+  const mean = count / 4;
 
-    for (const size of SIZES) {
-      if (remainingDist - size < 0) continue;
-      const res = helper(remainingDist - size, remainingCount - 1, [...acc, size]);
-      if (res) return res;
+  for (let c400 = 0; c400 <= count; c400++) {
+    for (let c300 = 0; c300 + c400 <= count; c300++) {
+      for (let c200 = 0; c200 + c300 + c400 <= count; c200++) {
+        const c100 = count - (c400 + c300 + c200);
+        const total = 400 * c400 + 300 * c300 + 200 * c200 + 100 * c100;
+        if (total !== dist) continue;
+
+        const counts = [c400, c300, c200, c100];
+        // score: sum squared deviation from mean (lower = more even)
+        const score = counts.reduce((s, c) => s + (c - mean) * (c - mean), 0);
+
+        if (!best || score < best.score) {
+          best = { counts: [c400, c300, c200, c100], score };
+        }
+      }
     }
-    return null;
   }
 
-  const found = helper(dist, count, []);
-  return found ?? [];
+  if (!best) return [];
+
+  const [c400, c300, c200, c100] = best.counts;
+  const result: HillSize[] = [];
+  for (let i = 0; i < c400; i++) result.push(400);
+  for (let i = 0; i < c300; i++) result.push(300);
+  for (let i = 0; i < c200; i++) result.push(200);
+  for (let i = 0; i < c100; i++) result.push(100);
+  return result;
 }
 
 export function canAutoComplete(hills: Hill[], distance: number, reps: number): boolean {

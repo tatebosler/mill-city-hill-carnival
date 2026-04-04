@@ -50,45 +50,23 @@ export function selectHillsConsistency(dist: number, count: number): HillSize[] 
 }
 
 export function selectHillsVariety(dist: number, count: number): HillSize[] {
-  const result: HillSize[] = [];
+  const SIZES = [400, 300, 200, 100] as const;
 
-  const basePerDistance = Math.floor(count / 4);
-  const extras = count % 4;
+  function helper(remainingDist: number, remainingCount: number, acc: HillSize[]): HillSize[] | null {
+    if (remainingCount === 0) return remainingDist === 0 ? acc : null;
+    if (remainingDist < remainingCount * 100) return null;
+    if (remainingDist > remainingCount * 400) return null;
 
-  const targets: Record<HillSize, number> = {
-    400: basePerDistance + (extras > 0 ? 1 : 0),
-    300: basePerDistance + (extras > 1 ? 1 : 0),
-    200: basePerDistance + (extras > 2 ? 1 : 0),
-    100: basePerDistance,
-  };
-
-  let remainingDist = dist;
-  let remainingCount = count;
-
-  for (const size of [400, 300, 200, 100] as const) {
-    let target = targets[size];
-    while (
-      target > 0 &&
-      remainingCount > 0 &&
-      remainingDist >= size &&
-      // Ensure that after taking this hill we can still fill the rest with 100m hills
-      remainingDist - size >= (remainingCount - 1) * 100
-    ) {
-      result.push(size);
-      remainingDist -= size;
-      remainingCount--;
-      target--;
+    for (const size of SIZES) {
+      if (remainingDist - size < 0) continue;
+      const res = helper(remainingDist - size, remainingCount - 1, [...acc, size]);
+      if (res) return res;
     }
+    return null;
   }
 
-  while (remainingCount > 0 && remainingDist >= 100) {
-    result.push(100);
-    remainingDist -= 100;
-    remainingCount--;
-  }
-
-  // If we filled all distance but still have holes, return what we have (caller will handle)
-  return result;
+  const found = helper(dist, count, []);
+  return found ?? [];
 }
 
 export function canAutoComplete(hills: Hill[], distance: number, reps: number): boolean {

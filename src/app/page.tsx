@@ -6,6 +6,7 @@ import { faCircleExclamation, faArrowLeft, faXmark } from '@fortawesome/free-sol
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import Subtitle from './subtitle';
 import { MCR_PLANS } from './mcrPlans';
+import WorkoutBuilder from './workout-builder';
 
 function getWarnings(distance: number | undefined, reps: number | undefined): string[] {
   const warnings: string[] = [];
@@ -290,6 +291,10 @@ export default function Home() {
           </DialogPanel>
         </div>
       </Dialog>
+
+      {distance && reps && warnings.length === 0 && (
+        <WorkoutBuilder key={`${distance}-${reps}`} distance={distance} reps={reps} />
+      )}
     </div>
   );
 }

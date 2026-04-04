@@ -1,0 +1,608 @@
+'use client';
+
+import { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faPlus,
+  faXmark,
+  faGripVertical,
+  faWandMagicSparkles,
+  faCircleCheck,
+  faRotateLeft,
+  faSortAmountDown,
+  faShuffle,
+} from '@fortawesome/free-solid-svg-icons';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
+
+export type HillSize = 100 | 200 | 300 | 400;
+
+export interface Hill {
+  id: string;
+  size: HillSize;
+}
+
+const HILL_SIZES: HillSize[] = [100, 200, 300, 400];
+
+const HILL_COLORS: Record<HillSize, string> = {
+  100: 'bg-fuchsia-300 dark:bg-fuchsia-700',
+  200: 'bg-sky-300 dark:bg-sky-700',
+  300: 'bg-emerald-300 dark:bg-emerald-700',
+  400: 'bg-yellow-300 dark:bg-yellow-700',
+};
+
+const HILL_BUTTON_COLORS: Record<HillSize, string> = {
+  100: 'border-fuchsia-300 dark:border-fuchsia-700 bg-fuchsia-200 dark:bg-fuchsia-800 text-fuchsia-900 dark:text-fuchsia-100 hover:bg-fuchsia-300 dark:hover:bg-fuchsia-700 active:bg-fuchsia-400 dark:active:bg-fuchsia-600',
+  200: 'border-sky-300 dark:border-sky-700 bg-sky-200 dark:bg-sky-800 text-sky-900 dark:text-sky-100 hover:bg-sky-300 dark:hover:bg-sky-700 active:bg-sky-400 dark:active:bg-sky-600',
+  300: 'border-emerald-300 dark:border-emerald-700 bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 hover:bg-emerald-300 dark:hover:bg-emerald-700 active:bg-emerald-400 dark:active:bg-emerald-600',
+  400: 'border-yellow-300 dark:border-yellow-700 bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-100 hover:bg-yellow-300 dark:hover:bg-yellow-700 active:bg-yellow-400 dark:active:bg-yellow-600',
+};
+
+type SortType = 'longest' | 'shortest' | 'descending-ladder' | 'ascending-ladder' | 'random';
+
+function sortHills(hills: Hill[], type: SortType): Hill[] {
+  const result = [...hills];
+
+  switch (type) {
+    case 'longest':
+      result.sort((a, b) => b.size - a.size);
+      break;
+    case 'shortest':
+      result.sort((a, b) => a.size - b.size);
+      break;
+    case 'descending-ladder': {
+      const cycle: HillSize[] = [400, 300, 200, 100];
+      const grouped: Record<HillSize, Hill[]> = { 100: [], 200: [], 300: [], 400: [] };
+      for (const hill of result) {
+        grouped[hill.size].push(hill);
+      }
+      result.length = 0;
+      let cycleIdx = 0;
+      while (result.length < hills.length) {
+        for (let i = 0; i < 4; i++) {
+          const size = cycle[i];
+          if (grouped[size].length > 0) {
+            result.push(grouped[size].shift()!);
+          }
+        }
+      }
+      break;
+    }
+    case 'ascending-ladder': {
+      const cycle: HillSize[] = [100, 200, 300, 400];
+      const grouped: Record<HillSize, Hill[]> = { 100: [], 200: [], 300: [], 400: [] };
+      for (const hill of result) {
+        grouped[hill.size].push(hill);
+      }
+      result.length = 0;
+      let cycleIdx = 0;
+      while (result.length < hills.length) {
+        for (let i = 0; i < 4; i++) {
+          const size = cycle[i];
+          if (grouped[size].length > 0) {
+            result.push(grouped[size].shift()!);
+          }
+        }
+      }
+      break;
+    }
+    case 'random': {
+      for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      break;
+    }
+  }
+
+  return result;
+}
+
+let _counter = 0;
+function makeId() {
+  return `hill-${++_counter}`;
+}
+
+function selectHillsConsistency(dist: number, count: number): HillSize[] {
+  // Find which distance, when repeated, uses the most of the available distance budget
+  let bestSize: HillSize = 100;
+  let bestCount = 0;
+  let bestDistUsed = 0;
+
+  for (const size of HILL_SIZES) {
+    const maxReps = Math.min(count, Math.floor(dist / size));
+    const distUsed = maxReps * size;
+    if (distUsed > bestDistUsed) {
+      bestDistUsed = distUsed;
+      bestSize = size;
+      bestCount = maxReps;
+    }
+  }
+
+  const result: HillSize[] = Array(bestCount).fill(bestSize);
+  let remainingDist = dist - bestCount * bestSize;
+  let remainingCount = count - bestCount;
+
+  // Fill remainder with 100m hills
+  while (remainingCount > 0 && remainingDist >= 100) {
+    result.push(100);
+    remainingDist -= 100;
+    remainingCount--;
+  }
+
+  return result;
+}
+
+function selectHillsVariety(dist: number, count: number): HillSize[] {
+  const result: HillSize[] = [];
+
+  // Distribute count across all 4 distances as evenly as possible
+  const basePerDistance = Math.floor(count / 4);
+  const extras = count % 4;
+
+  const targets: Record<HillSize, number> = {
+    400: basePerDistance + (extras > 0 ? 1 : 0),
+    300: basePerDistance + (extras > 1 ? 1 : 0),
+    200: basePerDistance + (extras > 2 ? 1 : 0),
+    100: basePerDistance,
+  };
+
+  let remainingDist = dist;
+  let remainingCount = count;
+
+  // Fill each distance according to its target, largest first
+  for (const size of [400, 300, 200, 100] as const) {
+    let target = targets[size];
+    while (target > 0 && remainingCount > 0 && remainingDist >= size) {
+      result.push(size);
+      remainingDist -= size;
+      remainingCount--;
+      target--;
+    }
+  }
+
+  // Fill any remaining holes with 100m hills
+  while (remainingCount > 0 && remainingDist >= 100) {
+    result.push(100);
+    remainingDist -= 100;
+    remainingCount--;
+  }
+
+  // If we have remaining distance but no remaining count, upgrade a random hill
+  if (remainingDist > 0 && remainingCount === 0 && result.length > 0) {
+    // Find indices of hills we can upgrade (< 400m)
+    const upgradeableIndices = result
+      .map((size, i) => (size < 400 ? i : -1))
+      .filter((i) => i >= 0);
+
+    if (upgradeableIndices.length > 0) {
+      const idx = upgradeableIndices[Math.floor(Math.random() * upgradeableIndices.length)];
+      const upgradeAmount = Math.min(remainingDist, 400 - result[idx]);
+      result[idx] = (result[idx] + upgradeAmount) as HillSize;
+    }
+  }
+
+  return result;
+}
+
+function canAutoComplete(hills: Hill[], distance: number, reps: number): boolean {
+  const currentDist = hills.reduce((s, h) => s + h.size, 0);
+  const missing = HILL_SIZES.filter((s) => !hills.some((h) => h.size === s));
+  const mustAddDist = missing.reduce((s, m) => s + m, 0);
+  const mustAddCount = missing.length;
+  const remainingDist = distance - currentDist - mustAddDist;
+  const remainingCount = reps - hills.length - mustAddCount;
+
+  if (remainingDist < 0 || remainingCount < 0) return false;
+  if (remainingDist % 100 !== 0) return false;
+  if (remainingCount === 0 && remainingDist !== 0) return false;
+  if (remainingCount > 0 && remainingDist < remainingCount * 100) return false;
+  if (remainingCount > 0 && remainingDist > remainingCount * 400) return false;
+  return true;
+}
+
+function doComplete(
+  hills: Hill[],
+  distance: number,
+  reps: number,
+  distribution: 'consistency' | 'variety',
+): Hill[] {
+  const result = [...hills];
+  const represented = new Set(result.map((h) => h.size));
+
+  // Add mandatory hills in descending order (so 400 is always first if added)
+  for (const size of [400, 300, 200, 100] as const) {
+    if (!represented.has(size)) {
+      result.push({ id: makeId(), size });
+      represented.add(size);
+    }
+  }
+
+  const currentDist = result.reduce((s, h) => s + h.size, 0);
+  const remainingDist = distance - currentDist;
+  const remainingCount = reps - result.length;
+
+  if (remainingCount > 0 && remainingDist > 0) {
+    const toAdd =
+      distribution === 'consistency'
+        ? selectHillsConsistency(remainingDist, remainingCount)
+        : selectHillsVariety(remainingDist, remainingCount);
+
+    for (const size of toAdd) {
+      result.push({ id: makeId(), size });
+    }
+  }
+
+  // Sort all hills by distance (descending) so hills of same distance are grouped together
+  result.sort((a, b) => b.size - a.size);
+
+  return result;
+}
+
+function SortableHillItem({
+  hill,
+  index,
+  onRemove,
+}: {
+  hill: Hill;
+  index: number;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: hill.id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      className={`flex items-center gap-3 rounded-lg px-3 py-3 ${HILL_COLORS[hill.size]}`}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing touch-none shrink-0 text-gray-900/40 dark:text-white/50 hover:text-gray-900/70 dark:hover:text-white/80"
+        aria-label={`Drag to reorder hill ${index + 1}`}
+      >
+        <FontAwesomeIcon icon={faGripVertical} className="size-4" aria-hidden />
+      </button>
+
+      <span className="grow text-center text-xl font-bold text-gray-900 dark:text-white">
+        {hill.size}m
+      </span>
+
+      <span className="shrink-0 text-xs tabular-nums text-gray-900/40 dark:text-white/50">
+        #{index + 1}
+      </span>
+
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove hill ${index + 1} (${hill.size}m)`}
+        className="cursor-pointer shrink-0 text-gray-900/40 dark:text-white/50 hover:text-gray-900/80 dark:hover:text-white"
+      >
+        <FontAwesomeIcon icon={faXmark} className="size-4" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+interface WorkoutBuilderProps {
+  distance: number;
+  reps: number;
+}
+
+export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) {
+  const [hills, setHills] = useState<Hill[]>([]);
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+  const [sortDialogOpen, setSortDialogOpen] = useState(false);
+
+  const totalDist = hills.reduce((s, h) => s + h.size, 0);
+  const allFourPresent = HILL_SIZES.every((s) => hills.some((h) => h.size === s));
+  const isComplete = hills.length === reps && totalDist === distance && allFourPresent;
+  const completable = !isComplete && canAutoComplete(hills, distance, reps);
+  const distOver = totalDist > distance;
+  const repsOver = hills.length > reps;
+  const missingDistances = HILL_SIZES.filter((s) => !hills.some((h) => h.size === s));
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setHills((prev) => {
+        const oldIdx = prev.findIndex((h) => h.id === active.id);
+        const newIdx = prev.findIndex((h) => h.id === over.id);
+        return arrayMove(prev, oldIdx, newIdx);
+      });
+    }
+  }
+
+  function canAdd(size: HillSize) {
+    // Basic constraints: room for rep and distance
+    if (hills.length >= reps || totalDist + size > distance) {
+      return false;
+    }
+
+    // Check if adding this hill would leave an impossible state
+    // by testing if we could still auto-complete
+    const afterAdding = [...hills, { id: '_test', size }];
+    return canAutoComplete(afterAdding, distance, reps);
+  }
+
+  function addHill(size: HillSize) {
+    setHills((prev) => [...prev, { id: makeId(), size }]);
+  }
+
+  function removeHill(id: string) {
+    setHills((prev) => prev.filter((h) => h.id !== id));
+  }
+
+  function handleComplete(distribution: 'consistency' | 'variety') {
+    setHills(doComplete(hills, distance, reps, distribution));
+    setCompleteDialogOpen(false);
+    setSortDialogOpen(true);
+  }
+
+  function closeCompleteDialog() {
+    setCompleteDialogOpen(false);
+  }
+
+  function handleReset() {
+    setHills([]);
+  }
+
+  function handleSort(type: SortType) {
+    setHills(sortHills(hills, type));
+    setSortDialogOpen(false);
+  }
+
+  return (
+    <div className="mt-8 sm:mt-12 mx-4 sm:mx-24">
+      {/* Header */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white">Build Your Workout</h2>
+        <span
+          role="status"
+          aria-live="polite"
+          className={`text-sm tabular-nums ${
+            isComplete
+              ? 'text-green-600 dark:text-green-400'
+              : distOver || repsOver
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          {hills.length} / {reps} hills · {totalDist.toLocaleString()} / {distance.toLocaleString()}m
+        </span>
+      </div>
+
+      {/* Add-hill buttons + Complete Workout */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {HILL_SIZES.map((size) => (
+          <button
+            key={size}
+            type="button"
+            onClick={() => addHill(size)}
+            disabled={!canAdd(size)}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${HILL_BUTTON_COLORS[size]}`}
+          >
+            <FontAwesomeIcon icon={faPlus} className="size-3" aria-hidden />
+            {size}m
+          </button>
+        ))}
+
+        {completable && (
+          <button
+            type="button"
+            onClick={() => setCompleteDialogOpen(true)}
+            className="cursor-pointer inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
+          >
+            <FontAwesomeIcon icon={faWandMagicSparkles} className="size-3" aria-hidden />
+            Complete Workout
+          </button>
+        )}
+
+        {hills.length > 0 && (
+          <>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-gray-300 dark:border-white/15 bg-white dark:bg-white/5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10"
+            >
+              <FontAwesomeIcon icon={faRotateLeft} className="size-3" aria-hidden />
+              Reset
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSortDialogOpen(true)}
+              className="cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-gray-300 dark:border-white/15 bg-white dark:bg-white/5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10"
+            >
+              <FontAwesomeIcon icon={faSortAmountDown} className="size-3" aria-hidden />
+              Sort All
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Hill list */}
+      {hills.length > 0 ? (
+        <>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={hills.map((h) => h.id)} strategy={verticalListSortingStrategy}>
+              <div className="flex flex-col gap-2">
+                {hills.map((hill, i) => (
+                  <SortableHillItem
+                    key={hill.id}
+                    hill={hill}
+                    index={i}
+                    onRemove={() => removeHill(hill.id)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+
+          {/* Status message */}
+          <div role="status" aria-live="polite" className="mt-3 text-sm">
+            {isComplete ? (
+              <span className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <FontAwesomeIcon icon={faCircleCheck} className="size-4" aria-hidden />
+                Workout complete!
+              </span>
+            ) : distOver ? (
+              <span className="text-red-600 dark:text-red-400">
+                Distance exceeds target by {(totalDist - distance).toLocaleString()}m — remove some hills.
+              </span>
+            ) : repsOver ? (
+              <span className="text-red-600 dark:text-red-400">
+                Too many hills ({hills.length} of {reps}) — remove some hills.
+              </span>
+            ) : (
+              <span className="text-gray-500 dark:text-gray-400">
+                {reps - hills.length > 0 &&
+                  `${reps - hills.length} more hill${reps - hills.length !== 1 ? 's' : ''} needed. `}
+                {distance - totalDist > 0 && `${(distance - totalDist).toLocaleString()}m remaining. `}
+                {missingDistances.length > 0 &&
+                  `Must include: ${missingDistances.map((s) => `${s}m`).join(', ')}.`}
+              </span>
+            )}
+          </div>
+        </>
+      ) : (
+        <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+          Add hills using the buttons above
+          {completable && (
+            <>
+              , or click <strong className="text-gray-600 dark:text-gray-300">Complete Workout</strong> to fill
+              in automatically
+            </>
+          )}
+          .
+        </p>
+      )}
+
+      <Dialog open={completeDialogOpen} onClose={closeCompleteDialog} className="relative z-50">
+        <DialogBackdrop className="fixed inset-0 bg-black/60" />
+        <div className="fixed inset-x-0 top-0 flex justify-center pt-2">
+          <DialogPanel className="bg-gray-700 rounded-lg p-6 mx-4 w-full max-w-sm shadow-xl text-left">
+            <DialogTitle className="text-lg font-medium text-white mb-3">
+              Consistency or variety?
+            </DialogTitle>
+            <p className="text-sm text-gray-300 mb-4">
+              How would you like the remaining hills distributed?
+            </p>
+            <div className="flex flex-col gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => handleComplete('consistency')}
+                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+              >
+                <div className="font-medium text-white">Consistency</div>
+                <div className="text-sm text-gray-300">Repeat one distance as much as possible</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleComplete('variety')}
+                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+              >
+                <div className="font-medium text-white">Variety</div>
+                <div className="text-sm text-gray-300">Spread reps across all four distances</div>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={closeCompleteDialog}
+              className="cursor-pointer rounded-md bg-gray-600 px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-500 hover:text-white flex items-center gap-2"
+            >
+              <FontAwesomeIcon icon={faXmark} className="size-4" />
+              Cancel
+            </button>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      <Dialog open={sortDialogOpen} onClose={() => setSortDialogOpen(false)} className="relative z-50">
+        <DialogBackdrop className="fixed inset-0 bg-black/60" />
+        <div className="fixed inset-x-0 top-0 flex justify-center pt-2">
+          <DialogPanel className="bg-gray-700 rounded-lg p-6 mx-4 w-full max-w-sm shadow-xl text-left">
+            <DialogTitle className="text-lg font-medium text-white mb-4">
+              Sort your hills
+            </DialogTitle>
+            <div className="flex flex-col gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => handleSort('longest')}
+                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+              >
+                <div className="font-medium text-white">Longest hills first</div>
+                <div className="text-sm text-gray-300">400m, 300m, 200m, 100m</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSort('shortest')}
+                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+              >
+                <div className="font-medium text-white">Shortest hills first</div>
+                <div className="text-sm text-gray-300">100m, 200m, 300m, 400m</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSort('descending-ladder')}
+                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+              >
+                <div className="font-medium text-white">Descending ladders</div>
+                <div className="text-sm text-gray-300">400, 300, 200, 100, 400, 300...</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSort('ascending-ladder')}
+                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+              >
+                <div className="font-medium text-white">Ascending ladders</div>
+                <div className="text-sm text-gray-300">100, 200, 300, 400, 100, 200...</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSort('random')}
+                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+              >
+                <div className="font-medium text-white">Random</div>
+                <div className="text-sm text-gray-300">Shuffle all hills</div>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSortDialogOpen(false)}
+              className="cursor-pointer rounded-md bg-gray-600 px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-500 hover:text-white flex items-center gap-2"
+            >
+              <FontAwesomeIcon icon={faXmark} className="size-4" />
+              Cancel
+            </button>
+          </DialogPanel>
+        </div>
+      </Dialog>
+    </div>
+  );
+}

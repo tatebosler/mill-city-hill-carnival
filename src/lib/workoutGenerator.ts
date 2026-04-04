@@ -41,10 +41,9 @@ export function selectHillsConsistency(dist: number, count: number): HillSize[] 
   let remainingDist = dist - bestCount * bestSize;
   let remainingCount = count - bestCount;
 
-  while (remainingCount > 0 && remainingDist >= 100) {
-    result.push(100);
-    remainingDist -= 100;
-    remainingCount--;
+  if (remainingCount > 0 && remainingDist >= 100) {
+    const tail = selectHillsConsistency(remainingDist, remainingCount);
+    result.push(...tail);
   }
 
   return result;

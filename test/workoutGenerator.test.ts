@@ -6,6 +6,13 @@ describe('workout generator', () => {
     resetIdCounter();
   });
 
+  it('generates requested number of hills for 2500m / 8 hills (consistency)', () => {
+    const hills = doComplete([], 2500, 8, 'consistency');
+    const total = hills.reduce((s, h) => s + h.size, 0);
+    expect(hills.length).toBe(8);
+    expect(total).toBe(2500);
+  });
+
   it('generates requested number of hills for 2500m / 10 hills (consistency)', () => {
     const hills = doComplete([], 2500, 10, 'consistency');
     const total = hills.reduce((s, h) => s + h.size, 0);

@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
-import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react';
+import { faCircleExclamation, faArrowLeft, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import Subtitle from './subtitle';
 import { MCR_PLANS } from './mcrPlans';
 
@@ -48,7 +48,7 @@ function roundToStep(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-type Preset = 'min' | 'mid' | 'max';
+type Preset = 'min' | 'mid' | 'modMore' | 'modFewer' | 'max';
 
 export default function Home() {
   const [distance, setDistance] = useState<number | undefined>();
@@ -74,15 +74,24 @@ export default function Home() {
   function applyPreset(preset: Preset) {
     if (!selectedPlan) return;
     const { distance: dr, hills: hr } = selectedPlan.range;
+    const midDistVal = roundToStep((dr.min + dr.max) / 2, 100);
+    const midHillVal = (hr.min + hr.max) / 2;
+
     if (preset === 'min') {
       setDistance(dr.min);
       setReps(hr.min);
     } else if (preset === 'max') {
       setDistance(dr.max);
       setReps(hr.max);
-    } else {
-      setDistance(roundToStep((dr.min + dr.max) / 2, 100));
-      setReps(roundToStep((hr.min + hr.max) / 2, 1));
+    } else if (preset === 'mid') {
+      setDistance(midDistVal);
+      setReps(roundToStep(midHillVal, 1));
+    } else if (preset === 'modMore') {
+      setDistance(midDistVal);
+      setReps(Math.ceil(midHillVal + 1));
+    } else if (preset === 'modFewer') {
+      setDistance(midDistVal);
+      setReps(Math.floor(midHillVal - 1));
     }
     closeModal();
   }
@@ -90,10 +99,20 @@ export default function Home() {
   function presetValues(preset: Preset) {
     if (!selectedPlan) return { distVal: 0, hillsVal: 0 };
     const { distance: dr, hills: hr } = selectedPlan.range;
-    return {
-      distVal: preset === 'min' ? dr.min : preset === 'max' ? dr.max : roundToStep((dr.min + dr.max) / 2, 100),
-      hillsVal: preset === 'min' ? hr.min : preset === 'max' ? hr.max : roundToStep((hr.min + hr.max) / 2, 1),
-    };
+    const midDistVal = roundToStep((dr.min + dr.max) / 2, 100);
+    const midHillVal = (hr.min + hr.max) / 2;
+
+    if (preset === 'min') {
+      return { distVal: dr.min, hillsVal: hr.min };
+    } else if (preset === 'max') {
+      return { distVal: dr.max, hillsVal: hr.max };
+    } else if (preset === 'mid') {
+      return { distVal: midDistVal, hillsVal: roundToStep(midHillVal, 1) };
+    } else if (preset === 'modMore') {
+      return { distVal: midDistVal, hillsVal: Math.ceil(midHillVal + 1) };
+    } else {
+      return { distVal: midDistVal, hillsVal: Math.floor(midHillVal - 1) };
+    }
   }
 
   return (
@@ -116,7 +135,7 @@ export default function Home() {
                     type="number"
                     max={5000}
                     step={100}
-                    value={distance}
+                    value={distance ?? ''}
                     onChange={(e) => setDistance(Number(e.target.value))}
                     onFocus={(e) => e.target.select()}
                     aria-describedby="distance-unit"
@@ -144,7 +163,7 @@ export default function Home() {
                     name="reps"
                     type="number"
                     max={30}
-                    value={reps}
+                    value={reps ?? ''}
                     onChange={(e) => setReps(Number(e.target.value))}
                     onFocus={(e) => e.target.select()}
                     className="block min-w-0 grow bg-white py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6 dark:bg-transparent dark:text-white dark:placeholder:text-gray-500"
@@ -181,40 +200,36 @@ export default function Home() {
 
       <Dialog open={modalOpen} onClose={closeModal} className="relative z-50">
         <DialogBackdrop className="fixed inset-0 bg-black/60" />
-        <div className="fixed inset-0 flex items-center justify-center">
+        <div className="fixed inset-x-0 top-0 flex justify-center pt-2">
           <DialogPanel className="bg-gray-700 rounded-lg p-6 mx-4 w-full max-w-sm shadow-xl text-left">
             {modalStep === 1 ? (
               <>
-                <DialogTitle className="text-lg font-medium text-white mb-4">Prefill from MCR training plans</DialogTitle>
-                <label className="block text-sm/6 font-medium text-gray-300 mb-2">
+                <DialogTitle className="text-lg font-medium text-white mb-2">Prefill from MCR training plans</DialogTitle>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   What is your maximum weekly mileage for this training cycle?
                 </label>
-                <div className="relative">
-                  <Menu>
-                    <MenuButton className="relative block w-full rounded-md bg-gray-600 px-3 py-2 text-left text-white outline-1 -outline-offset-1 outline-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-500 cursor-pointer">
-                      {selectedPlanId ? MCR_PLANS.find((p) => p.id === selectedPlanId)?.label : 'Select a plan…'}
-                    </MenuButton>
-                    <MenuItems className="absolute z-10 mt-1 w-full rounded-md bg-gray-600 py-1 text-white border border-gray-500">
-                      {MCR_PLANS.map((plan) => (
-                        <MenuItem key={plan.id}>
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedPlanId(plan.id); setModalStep(2); }}
-                            className="cursor-pointer block w-full text-left px-3 py-2 hover:bg-gray-500"
-                          >
-                            {plan.label}
-                          </button>
-                        </MenuItem>
-                      ))}
-                    </MenuItems>
-                  </Menu>
+                <div className="flex flex-col gap-2">
+                  {MCR_PLANS.map((plan) => (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => { setSelectedPlanId(plan.id); setModalStep(2); }}
+                      className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+                    >
+                      <div className="font-medium text-white">{plan.label}</div>
+                    </button>
+                  ))}
                 </div>
-                <div className="flex justify-end mt-6">
+                <div className="bg-indigo-900 my-2 text-sm p-2 border-l-4 border-indigo-500">
+                  <p className="text-indigo-300">All race distance groups have the same workout this week!</p>
+                </div>
+                <div className="flex justify-end mt-4">
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="cursor-pointer rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:text-white"
+                    className="cursor-pointer rounded-md bg-gray-600 px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-500 hover:text-white flex items-center gap-2"
                   >
+                    <FontAwesomeIcon icon={faXmark} className="size-4" />
                     Cancel
                   </button>
                 </div>
@@ -222,30 +237,51 @@ export default function Home() {
             ) : selectedPlan ? (
               <>
                 <DialogTitle className="text-lg font-medium text-white mb-1">Pick your intensity</DialogTitle>
-                <p className="text-sm text-gray-400 mb-4">{selectedPlan.label}</p>
-                <div className="flex flex-col gap-3">
-                  {(['min', 'mid', 'max'] as const).map((preset) => {
+                <p className="text-sm text-gray-400 mb-2">
+                  {selectedPlan.label}{' '}
+                  <button
+                    type="button"
+                    onClick={() => setModalStep(1)}
+                    className="cursor-pointer text-indigo-400 hover:text-indigo-300"
+                  >
+                    Change
+                  </button>
+                </p>
+                <div className="bg-indigo-900 my-2 text-sm p-2 border-l-4 border-indigo-500">
+                  <p className="text-indigo-300">If you&apos;re racing Goldy&apos;s this weekend, we recommend against choosing the <strong>Maximum</strong> option below.</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {(['min', 'modFewer', 'mid', 'modMore', 'max'] as const).map((preset) => {
                     const { distVal, hillsVal } = presetValues(preset);
-                    const label = preset === 'min' ? 'Minimum' : preset === 'max' ? 'Maximum' : 'Midpoint';
+                    const label = preset === 'min' ? 'Minimum' : preset === 'max' ? 'Maximum' : preset === 'mid' ? 'Medium' : preset === 'modMore' ? 'Medium - More (Shorter) Hills' : 'Medium - Fewer (Longer) Hills';
                     return (
                       <button
                         key={preset}
                         type="button"
                         onClick={() => applyPreset(preset)}
-                        className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-3 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+                        className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
                       >
                         <div className="font-medium text-white">{label}</div>
-                        <div className="text-sm text-gray-400">{distVal.toLocaleString()}m, {hillsVal} hills</div>
+                        <div className="text-sm text-gray-300">{distVal.toLocaleString()}m | {hillsVal} hills | avg. {Math.round((distVal / hillsVal) * 10) / 10}m per hill</div>
                       </button>
                     );
                   })}
                 </div>
-                <div className="flex justify-end mt-6">
+                <div className="flex gap-2 mt-4">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="cursor-pointer rounded-md bg-gray-600 px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-500 hover:text-white flex items-center gap-2"
+                  >
+                    <FontAwesomeIcon icon={faXmark} className="size-4" />
+                    Cancel
+                  </button>
                   <button
                     type="button"
                     onClick={() => setModalStep(1)}
-                    className="cursor-pointer rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:text-white"
+                    className="cursor-pointer rounded-md bg-gray-600 px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-500 hover:text-white flex items-center gap-2"
                   >
+                    <FontAwesomeIcon icon={faArrowLeft} className="size-4" />
                     Back
                   </button>
                 </div>

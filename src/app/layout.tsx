@@ -21,7 +21,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fontdinerSwanky.variable} h-full antialiased bg-gray-800 text-gray-200`}
+      className={`${fontdinerSwanky.variable} h-full antialiased bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

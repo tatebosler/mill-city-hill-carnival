@@ -204,10 +204,23 @@ interface WorkoutBuilderProps {
   reps: number;
   setDistance: (n: number) => void;
   setReps: (n: number) => void;
+  initialHills?: Hill[];
+  initialHillsKey?: string;
 }
 
-export default function WorkoutBuilder({ distance, reps, setDistance, setReps }: WorkoutBuilderProps) {
+export default function WorkoutBuilder({ distance, reps, setDistance, setReps, initialHills, initialHillsKey }: WorkoutBuilderProps) {
   const [hills, setHills] = useState<Hill[]>([]);
+  // Initialize with externally-provided hills when requested (e.g. Maximum Chaos)
+  const [hasInitializedFromProps, setHasInitializedFromProps] = useState(false);
+
+  // When parent passes initialHills and a key, use them to set the local hills state.
+  // We guard so this only runs once per provided key.
+  useLayoutEffect(() => {
+    if (initialHills && initialHillsKey && !hasInitializedFromProps) {
+      setHills(initialHills);
+      setHasInitializedFromProps(true);
+    }
+  }, [initialHillsKey, initialHills, hasInitializedFromProps]);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [sortDialogOpen, setSortDialogOpen] = useState(false);
   const [distanceDialogOpen, setDistanceDialogOpen] = useState(false);

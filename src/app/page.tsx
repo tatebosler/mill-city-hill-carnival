@@ -7,6 +7,7 @@ import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/re
 import Subtitle from './subtitle';
 import { MCR_PLANS } from './mcrPlans';
 import WorkoutBuilder from './workout-builder';
+import { doComplete, Hill } from '../lib/workoutGenerator';
 
 function getWarnings(distance: number | undefined, reps: number | undefined): string[] {
   const warnings: string[] = [];
@@ -59,6 +60,9 @@ export default function Home() {
   const [modalStep, setModalStep] = useState<1 | 2>(1);
 
   const warnings = getWarnings(distance, reps);
+  const [chaosDialogOpen, setChaosDialogOpen] = useState(false);
+  const [initialHills, setInitialHills] = useState<Hill[] | undefined>();
+  const [initialHillsKey, setInitialHillsKey] = useState<string | undefined>();
 
   function openModal() {
     setSelectedPlanId('');
@@ -122,7 +126,7 @@ export default function Home() {
       <Subtitle />
 
       <div className="mt-8 sm:mt-12 mx-4 sm:mx-24 text-left">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <div className="flex flex-col gap-2 sm:gap-4 sm:flex-row sm:items-end">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 grow">
             <div>
               <label htmlFor="distance" className="block text-sm/6 font-medium text-gray-900 dark:text-white">
@@ -194,6 +198,16 @@ export default function Home() {
               className="cursor-pointer w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
             >
               Prefill from MCR training plans
+            </button>
+          </div>
+
+          <div className="shrink-0">
+            <button
+              type="button"
+              onClick={() => setChaosDialogOpen(true)}
+              className="cursor-pointer w-full sm:w-auto rounded-md bg-yellow-400 px-3 py-2 text-sm font-medium text-gray-900 hover:bg-yellow-300 focus:outline-2 focus:outline-offset-2 focus:outline-yellow-400"
+            >
+              Enable <span className="font-serif">Maximum Chaos Mode</span>
             </button>
           </div>
         </div>
@@ -292,8 +306,69 @@ export default function Home() {
         </div>
       </Dialog>
 
+      <Dialog open={chaosDialogOpen} onClose={() => setChaosDialogOpen(false)} className="relative z-50">
+        <DialogBackdrop className="fixed inset-0 bg-black/60" />
+        <div className="fixed inset-x-0 top-0 flex justify-center pt-2">
+          <DialogPanel className="bg-yellow-100 rounded-lg p-6 mx-4 w-full max-w-sm shadow-xl text-left border-l-4 border-yellow-400">
+            <DialogTitle className="text-lg font-medium text-yellow-900 mb-2">Warning: Enabling <span className="font-serif">Maximum Chaos Mode</span></DialogTitle>
+            <p className="text-sm text-yellow-900 mb-3">
+              This will build a completely random workout &mdash; between 1,200 and 3,600 meters of hills &mdash; without regard for your training plan or goals. <strong>It is not recommended. Use this at your own risk.</strong>
+            </p>
+            <p className="text-sm text-yellow-800 mb-4">Are you sure you want to proceed?</p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setChaosDialogOpen(false)}
+                className="cursor-pointer rounded-md bg-gray-600 px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-500 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // pick a random distance (1200-3600, step 100)
+                  const min = 1200;
+                  const max = 3600;
+                  const steps = Math.floor((max - min) / 100) + 1;
+                  const rnd = Math.floor(Math.random() * steps);
+                  const dist = min + rnd * 100;
+
+                  // compute legal hill count bounds similar to getWarnings
+                  const minReps = Math.max(4, Math.ceil((dist - 1000) / 400) + 4);
+                  const maxReps = Math.min(30, Math.floor(((dist - 1000) / 100) + 4));
+                  const repsVal = minReps <= maxReps ? Math.floor(Math.random() * (maxReps - minReps + 1)) + minReps : minReps;
+
+                  // generate variety-mode hills then shuffle
+                  const generated = doComplete([], dist, repsVal, 'variety');
+                  for (let i = generated.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [generated[i], generated[j]] = [generated[j], generated[i]];
+                  }
+
+                  setDistance(dist);
+                  setReps(repsVal);
+                  setInitialHills(generated);
+                  setInitialHillsKey(String(Date.now()));
+                  setChaosDialogOpen(false);
+                }}
+                className="cursor-pointer rounded-md bg-yellow-600 px-3 py-2 text-sm font-medium text-white hover:bg-yellow-500 focus:outline-2 focus:outline-offset-2 focus:outline-yellow-600"
+              >
+                Proceed
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
       {distance && reps && warnings.length === 0 && (
-        <WorkoutBuilder distance={distance} reps={reps} setDistance={setDistance} setReps={setReps} />
+        <WorkoutBuilder
+          distance={distance}
+          reps={reps}
+          setDistance={setDistance}
+          setReps={setReps}
+          initialHills={initialHills}
+          initialHillsKey={initialHillsKey}
+        />
       )}
     </div>
   );

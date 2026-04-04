@@ -9,6 +9,7 @@ import {
   faWandMagicSparkles,
   faCircleCheck,
   faCircle,
+  faTrash,
   faRotateLeft,
   faSortAmountDown,
   faRuler,
@@ -845,23 +846,26 @@ export default function WorkoutBuilder({ distance, reps, setDistance, setReps }:
               <button
                 type="button"
                 onClick={() => handleChangePreference('delete')}
-                className="cursor-pointer w-full text-left rounded-md bg-red-800 px-4 py-2 hover:bg-red-700 active:bg-red-600 focus:outline-2 focus:outline-red-700 text-white font-medium"
+                className="cursor-pointer w-full text-left rounded-md bg-red-800 px-4 py-2 hover:bg-red-700 active:bg-red-600 focus:outline-2 focus:outline-red-700 text-white font-medium flex items-center gap-2"
               >
-                Delete my workout
+                <FontAwesomeIcon icon={faTrash} className="size-4" />
+                <span>Delete my workout</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleChangePreference('keep')}
-                className="cursor-pointer w-full text-left rounded-md bg-green-800 px-4 py-2 hover:bg-green-700 active:bg-green-600 focus:outline-2 focus:outline-green-700 text-white font-medium"
+                className="cursor-pointer w-full text-left rounded-md bg-green-800 px-4 py-2 hover:bg-green-700 active:bg-green-600 focus:outline-2 focus:outline-green-700 text-white font-medium flex items-center gap-2"
               >
-                Keep my workout (I&apos;ll fix it)
+                <FontAwesomeIcon icon={faCircleCheck} className="size-4" />
+                <span>Keep my workout (I&apos;ll fix it)</span>
               </button>
               <button
                 type="button"
                 onClick={() => undoChange()}
-                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-gray-600 text-white font-medium"
+                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-gray-600 text-white font-medium flex items-center gap-2"
               >
-                Undo this change
+                <FontAwesomeIcon icon={faRotateLeft} className="size-4" />
+                <span>Undo this change</span>
               </button>
             </div>
           </DialogPanel>

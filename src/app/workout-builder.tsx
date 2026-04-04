@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useLayoutEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus,
@@ -11,7 +11,6 @@ import {
   faCircle,
   faRotateLeft,
   faSortAmountDown,
-  faShuffle,
   faRuler,
 } from '@fortawesome/free-solid-svg-icons';
 import {
@@ -51,9 +50,7 @@ const HILL_COLORS: Record<HillSize, string> = {
 
 // Unit conversions
 const METERS_PER_MILE = 1609.344;
-const FEET_PER_MILE = 5280;
 const METERS_PER_KM = 1000;
-const FEET_PER_METER = FEET_PER_MILE / METERS_PER_MILE;
 
 // MCR location data
 const MCR_DISTANCE_KM = 3.55;
@@ -67,10 +64,6 @@ function metersToKm(m: number): number {
 
 function kmToMiles(km: number): number {
   return km * (METERS_PER_KM / METERS_PER_MILE);
-}
-
-function metersToFeet(m: number): number {
-  return m * FEET_PER_METER;
 }
 
 const HILL_BUTTON_COLORS: Record<HillSize, string> = {
@@ -99,7 +92,6 @@ function sortHills(hills: Hill[], type: SortType): Hill[] {
         grouped[hill.size].push(hill);
       }
       result.length = 0;
-      const cycleIdx = 0;
       while (result.length < hills.length) {
         for (let i = 0; i < 4; i++) {
           const size = cycle[i];
@@ -117,7 +109,6 @@ function sortHills(hills: Hill[], type: SortType): Hill[] {
         grouped[hill.size].push(hill);
       }
       result.length = 0;
-      const cycleIdx = 0;
       while (result.length < hills.length) {
         for (let i = 0; i < 4; i++) {
           const size = cycle[i];
@@ -359,6 +350,36 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
   const [distanceDialogOpen, setDistanceDialogOpen] = useState(false);
   const [includeWarmupCooldown, setIncludeWarmupCooldown] = useState(false);
   const [includeCoffmanStairs, setIncludeCoffmanStairs] = useState(false);
+  const [changeDialogOpen, setChangeDialogOpen] = useState(false);
+  const hasShownDialogThisSessionRef = useRef(false);
+  const prevDistanceRepsRef = useRef<{ distance: number; reps: number }>({ distance, reps });
+
+  // Load user preference from localStorage
+  const [changePreference, setChangePreference] = useState<'delete' | 'keep' | null>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('workoutBuilderChangePreference') as 'delete' | 'keep') || null;
+    }
+    return null;
+  });
+
+  // Watch for distance/reps changes
+  useLayoutEffect(() => {
+    const prev = prevDistanceRepsRef.current;
+
+    if ((distance !== prev.distance || reps !== prev.reps) && hills.length > 0) {
+      if (!hasShownDialogThisSessionRef.current) {
+        // First change this session, always show the dialog
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setChangeDialogOpen(true);
+        hasShownDialogThisSessionRef.current = true;
+      } else if (changePreference === 'delete') {
+        // Dialog already shown, apply their preference
+        setHills([]);
+      }
+      // else 'keep' - do nothing
+    }
+    prevDistanceRepsRef.current = { distance, reps };
+  }, [distance, reps, changePreference, hills.length]);
 
   const totalDist = hills.reduce((s, h) => s + h.size, 0);
   const allFourPresent = HILL_SIZES.every((s) => hills.some((h) => h.size === s));
@@ -431,6 +452,15 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
   function handleSort(type: SortType) {
     setHills(sortHills(hills, type));
     setSortDialogOpen(false);
+  }
+
+  function handleChangePreference(preference: 'delete' | 'keep') {
+    localStorage.setItem('workoutBuilderChangePreference', preference);
+    setChangePreference(preference);
+    if (preference === 'delete') {
+      setHills([]);
+    }
+    setChangeDialogOpen(false);
   }
 
   return (
@@ -781,6 +811,39 @@ export default function WorkoutBuilder({ distance, reps }: WorkoutBuilderProps) 
               <FontAwesomeIcon icon={faXmark} className="size-4" />
               Close
             </button>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      <Dialog open={changeDialogOpen} onClose={() => setChangeDialogOpen(false)} className="relative z-50">
+        <DialogBackdrop className="fixed inset-0 bg-black/60" />
+        <div className="fixed inset-x-0 top-0 flex justify-center pt-2">
+          <DialogPanel className="bg-gray-700 rounded-lg p-6 mx-4 w-full max-w-sm shadow-xl text-left">
+            <DialogTitle className="text-lg font-medium text-white mb-3">
+              Keep or delete your workout?
+            </DialogTitle>
+            <p className="text-sm text-gray-300 mb-4">
+              You changed the target distance or number of hills. What would you like to do?
+            </p>
+            <div className="flex flex-col gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => handleChangePreference('delete')}
+                className="cursor-pointer w-full text-left rounded-md bg-red-600 px-4 py-2 hover:bg-red-500 focus:outline-2 focus:outline-indigo-500 text-white font-medium"
+              >
+                Delete my workout
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChangePreference('keep')}
+                className="cursor-pointer w-full text-left rounded-md bg-green-600 px-4 py-2 hover:bg-green-500 focus:outline-2 focus:outline-indigo-500 text-white font-medium"
+              >
+                Keep my workout (I&apos;ll fix it)
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">
+              Your choice will be remembered until you reload the page.
+            </p>
           </DialogPanel>
         </div>
       </Dialog>

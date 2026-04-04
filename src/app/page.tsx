@@ -207,7 +207,10 @@ export default function Home() {
               onClick={() => setChaosDialogOpen(true)}
               className="cursor-pointer w-full sm:w-auto rounded-md bg-yellow-400 px-3 py-2 text-sm font-medium text-gray-900 hover:bg-yellow-300 focus:outline-2 focus:outline-offset-2 focus:outline-yellow-400"
             >
-              Enable <span className="font-serif">Total Chaos Mode</span>
+              <div className="flex flex-row items-end gap-1">
+                <span>Enable</span>
+                <span className="font-serif text-xs">Total Chaos Mode</span>
+              </div>
             </button>
           </div>
         </div>

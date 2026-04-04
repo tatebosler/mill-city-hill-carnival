@@ -32,15 +32,14 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
-
-export type HillSize = 100 | 200 | 300 | 400;
-
-export interface Hill {
-  id: string;
-  size: HillSize;
-}
-
-const HILL_SIZES: HillSize[] = [100, 200, 300, 400];
+import {
+  Hill,
+  HillSize,
+  HILL_SIZES,
+  canAutoComplete,
+  doComplete,
+  makeId,
+} from '../lib/workoutGenerator';
 
 const HILL_COLORS: Record<HillSize, string> = {
   100: 'bg-fuchsia-300 dark:bg-fuchsia-700',
@@ -149,146 +148,7 @@ function sortHills(hills: Hill[], type: SortType): Hill[] {
   return result;
 }
 
-let _counter = 0;
-function makeId() {
-  return `hill-${++_counter}`;
-}
 
-function selectHillsConsistency(dist: number, count: number): HillSize[] {
-  // Find which distance, when repeated, uses the most of the available distance budget
-  let bestSize: HillSize = 100;
-  let bestCount = 0;
-  let bestDistUsed = 0;
-
-  for (const size of HILL_SIZES) {
-    const maxReps = Math.min(count, Math.floor(dist / size));
-    const distUsed = maxReps * size;
-    if (distUsed > bestDistUsed) {
-      bestDistUsed = distUsed;
-      bestSize = size;
-      bestCount = maxReps;
-    }
-  }
-
-  const result: HillSize[] = Array(bestCount).fill(bestSize);
-  let remainingDist = dist - bestCount * bestSize;
-  let remainingCount = count - bestCount;
-
-  // Fill remainder with 100m hills
-  while (remainingCount > 0 && remainingDist >= 100) {
-    result.push(100);
-    remainingDist -= 100;
-    remainingCount--;
-  }
-
-  return result;
-}
-
-function selectHillsVariety(dist: number, count: number): HillSize[] {
-  const result: HillSize[] = [];
-
-  // Distribute count across all 4 distances as evenly as possible
-  const basePerDistance = Math.floor(count / 4);
-  const extras = count % 4;
-
-  const targets: Record<HillSize, number> = {
-    400: basePerDistance + (extras > 0 ? 1 : 0),
-    300: basePerDistance + (extras > 1 ? 1 : 0),
-    200: basePerDistance + (extras > 2 ? 1 : 0),
-    100: basePerDistance,
-  };
-
-  let remainingDist = dist;
-  let remainingCount = count;
-
-  // Fill each distance according to its target, largest first
-  for (const size of [400, 300, 200, 100] as const) {
-    let target = targets[size];
-    while (target > 0 && remainingCount > 0 && remainingDist >= size) {
-      result.push(size);
-      remainingDist -= size;
-      remainingCount--;
-      target--;
-    }
-  }
-
-  // Fill any remaining holes with 100m hills
-  while (remainingCount > 0 && remainingDist >= 100) {
-    result.push(100);
-    remainingDist -= 100;
-    remainingCount--;
-  }
-
-  // If we have remaining distance but no remaining count, upgrade a random hill
-  if (remainingDist > 0 && remainingCount === 0 && result.length > 0) {
-    // Find indices of hills we can upgrade (< 400m)
-    const upgradeableIndices = result
-      .map((size, i) => (size < 400 ? i : -1))
-      .filter((i) => i >= 0);
-
-    if (upgradeableIndices.length > 0) {
-      const idx = upgradeableIndices[Math.floor(Math.random() * upgradeableIndices.length)];
-      const upgradeAmount = Math.min(remainingDist, 400 - result[idx]);
-      result[idx] = (result[idx] + upgradeAmount) as HillSize;
-    }
-  }
-
-  return result;
-}
-
-function canAutoComplete(hills: Hill[], distance: number, reps: number): boolean {
-  const currentDist = hills.reduce((s, h) => s + h.size, 0);
-  const missing = HILL_SIZES.filter((s) => !hills.some((h) => h.size === s));
-  const mustAddDist = missing.reduce((s, m) => s + m, 0);
-  const mustAddCount = missing.length;
-  const remainingDist = distance - currentDist - mustAddDist;
-  const remainingCount = reps - hills.length - mustAddCount;
-
-  if (remainingDist < 0 || remainingCount < 0) return false;
-  if (remainingDist % 100 !== 0) return false;
-  if (remainingCount === 0 && remainingDist !== 0) return false;
-  if (remainingCount > 0 && remainingDist < remainingCount * 100) return false;
-  if (remainingCount > 0 && remainingDist > remainingCount * 400) return false;
-  return true;
-}
-
-function doComplete(
-  hills: Hill[],
-  distance: number,
-  reps: number,
-  distribution: 'consistency' | 'variety',
-): Hill[] {
-  const result = [...hills];
-  const represented = new Set(result.map((h) => h.size));
-
-  // Add mandatory hills in descending order (so 400 is always first if added)
-  for (const size of [400, 300, 200, 100] as const) {
-    if (!represented.has(size)) {
-      result.push({ id: makeId(), size });
-      represented.add(size);
-    }
-  }
-
-  const currentDist = result.reduce((s, h) => s + h.size, 0);
-  const remainingDist = distance - currentDist;
-  const remainingCount = reps - result.length;
-
-  if (remainingCount > 0 && remainingDist > 0) {
-    const toAdd =
-      distribution === 'consistency'
-        ? selectHillsConsistency(remainingDist, remainingCount)
-        : selectHillsVariety(remainingDist, remainingCount);
-
-    for (const size of toAdd) {
-      result.push({ id: makeId(), size });
-    }
-  }
-
-  // Sort all hills by distance (descending) so hills of same distance are grouped together
-  result.sort((a, b) => b.size - a.size);
-
-  return result;
-}
 
 function SortableHillItem({
   hill,

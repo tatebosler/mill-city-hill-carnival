@@ -207,7 +207,7 @@ export default function Home() {
               onClick={() => setChaosDialogOpen(true)}
               className="cursor-pointer w-full sm:w-auto rounded-md bg-yellow-400 px-3 py-2 text-sm font-medium text-gray-900 hover:bg-yellow-300 focus:outline-2 focus:outline-offset-2 focus:outline-yellow-400"
             >
-              Enable <span className="font-serif">Maximum Chaos Mode</span>
+              Enable <span className="font-serif">Total Chaos Mode</span>
             </button>
           </div>
         </div>
@@ -310,7 +310,7 @@ export default function Home() {
         <DialogBackdrop className="fixed inset-0 bg-black/60" />
         <div className="fixed inset-x-0 top-0 flex justify-center pt-2">
           <DialogPanel className="bg-yellow-100 rounded-lg p-6 mx-4 w-full max-w-sm shadow-xl text-left border-l-4 border-yellow-400">
-            <DialogTitle className="text-lg font-medium text-yellow-900 mb-2">Warning: Enabling <span className="font-serif">Maximum Chaos Mode</span></DialogTitle>
+            <DialogTitle className="text-lg font-medium text-yellow-900 mb-2">Warning: Enabling <span className="font-serif">Total Chaos Mode</span></DialogTitle>
             <p className="text-sm text-yellow-900 mb-3">
               This will build a completely random workout &mdash; between 1,200 and 3,600 meters of hills &mdash; without regard for your training plan or goals. <strong>It is not recommended. Use this at your own risk.</strong>
             </p>
@@ -362,12 +362,12 @@ export default function Home() {
 
       {distance && reps && warnings.length === 0 && (
         <WorkoutBuilder
+          key={initialHillsKey ?? `builder-${distance}-${reps}`}
           distance={distance}
           reps={reps}
           setDistance={setDistance}
           setReps={setReps}
           initialHills={initialHills}
-          initialHillsKey={initialHillsKey}
         />
       )}
     </div>

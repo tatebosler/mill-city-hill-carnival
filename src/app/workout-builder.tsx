@@ -75,6 +75,27 @@ const HILL_BUTTON_COLORS: Record<HillSize, string> = {
 
 type SortType = 'longest' | 'shortest' | 'descending-ladder' | 'ascending-ladder' | 'grouped-random' | 'maximum-chaos';
 
+// Visual scale (1..5) for how "chaotic" each sort option is. Used in the
+// Sort dialog to show a compact, accessible indicator.
+const CHAOS_RATING: Record<SortType, number> = {
+  longest: 0,
+  shortest: 1,
+  'descending-ladder': 2,
+  'ascending-ladder': 3,
+  'grouped-random': 4,
+  'maximum-chaos': 5,
+};
+
+// Background + text color classes for ratings 1..5 (index 0 -> rating 1)
+const CHAOS_BADGE_CLASS_BY_RATING = [
+  'bg-gray-400 text-gray-900',
+  'bg-purple-500 text-gray-200',
+  'bg-blue-500 text-gray-200',
+  'bg-emerald-500 text-gray-900',
+  'bg-yellow-400 text-gray-900',
+  'bg-red-500 text-gray-200',
+];
+
 function sortHills(hills: Hill[], type: SortType): Hill[] {
   const result = [...hills];
 
@@ -534,48 +555,90 @@ export default function WorkoutBuilder({ distance, reps, setDistance, setReps, i
               <button
                 type="button"
                 onClick={() => handleSort('longest')}
-                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+                aria-label={`Longest hills first — Chaos level ${CHAOS_RATING['longest']} of 5`}
+                className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
+                <span
+                  aria-hidden
+                  className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['longest'] ?? 0))]}`}
+                >
+                  Chaos Level: {CHAOS_RATING['longest']}/5
+                </span>
                 <div className="font-medium text-white">Longest hills first</div>
                 <div className="text-sm text-gray-300">all 400s, then all 300s, etc</div>
               </button>
               <button
                 type="button"
                 onClick={() => handleSort('shortest')}
-                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+                aria-label={`Shortest hills first — Chaos level ${CHAOS_RATING['shortest']} of 5`}
+                className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
+                <span
+                  aria-hidden
+                  className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['shortest'] ?? 0))]}`}
+                >
+                  Chaos Level: {CHAOS_RATING['shortest']}/5
+                </span>
                 <div className="font-medium text-white">Shortest hills first</div>
                 <div className="text-sm text-gray-300">all 100s, then all 200s, etc</div>
               </button>
               <button
                 type="button"
                 onClick={() => handleSort('descending-ladder')}
-                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+                aria-label={`Descending ladders — Chaos level ${CHAOS_RATING['descending-ladder']} of 5`}
+                className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
+                <span
+                  aria-hidden
+                  className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['descending-ladder'] ?? 0))]}`}
+                >
+                  Chaos Level: {CHAOS_RATING['descending-ladder']}/5
+                </span>
                 <div className="font-medium text-white">Descending ladders</div>
                 <div className="text-sm text-gray-300">400, 300, 200, 100, 400, 300...</div>
               </button>
               <button
                 type="button"
                 onClick={() => handleSort('ascending-ladder')}
-                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+                aria-label={`Ascending ladders — Chaos level ${CHAOS_RATING['ascending-ladder']} of 5`}
+                className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
+                <span
+                  aria-hidden
+                  className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['ascending-ladder'] ?? 0))]}`}
+                >
+                  Chaos Level: {CHAOS_RATING['ascending-ladder']}/5
+                </span>
                 <div className="font-medium text-white">Ascending ladders</div>
                 <div className="text-sm text-gray-300">100, 200, 300, 400, 100, 200...</div>
               </button>
               <button
                 type="button"
                 onClick={() => handleSort('grouped-random')}
-                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+                aria-label={`Grouped Random — Chaos level ${CHAOS_RATING['grouped-random']} of 5`}
+                className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
+                <span
+                  aria-hidden
+                  className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['grouped-random'] ?? 0))]}`}
+                >
+                  Chaos Level: {CHAOS_RATING['grouped-random']}/5
+                </span>
                 <div className="font-medium text-white">Grouped Random</div>
                 <div className="text-sm text-gray-300">Do all repeats of the same distance together, but shuffle the distances</div>
               </button>
               <button
                 type="button"
                 onClick={() => handleSort('maximum-chaos')}
-                className="cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
+                aria-label={`Maximum Chaos — Chaos level ${CHAOS_RATING['maximum-chaos']} of 5`}
+                className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
+                <span
+                  aria-hidden
+                  className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['maximum-chaos'] ?? 0))]}`}
+                >
+                  Chaos Level: {CHAOS_RATING['maximum-chaos']}/5
+                </span>
                 <div className="font-medium text-white font-serif">Maximum Chaos</div>
                 <div className="text-sm text-gray-300">Randomly shuffle everything</div>
               </button>

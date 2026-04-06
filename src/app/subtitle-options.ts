@@ -5,6 +5,7 @@ export interface SubtitleOption {
 
 export const subtitleOptions: SubtitleOption[] = [
   { text: "I Like To Move It, Move It", weight: 10 },
+  { text: "Yes, I actually spent $4.17 to buy this website to help you plan your reps", weight: 5 },
   { text: "I got bills I gotta pay", weight: 7 },
   { text: "Just one more hill", weight: 8 },
   { text: "It only works if you start running!", weight: 6 },

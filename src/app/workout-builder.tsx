@@ -96,6 +96,16 @@ const CHAOS_BADGE_CLASS_BY_RATING = [
   'bg-red-500 text-gray-200',
 ];
 
+// Descriptive labels for ratings 0..5
+const CHAOS_LABEL_BY_RATING = [
+  'extra lawful',
+  'lawful',
+  'somewhat lawful',
+  'somewhat chaotic',
+  'chaotic',
+  'extra chaotic',
+];
+
 function sortHills(hills: Hill[], type: SortType): Hill[] {
   const result = [...hills];
 
@@ -555,14 +565,14 @@ export default function WorkoutBuilder({ distance, reps, setDistance, setReps, i
               <button
                 type="button"
                 onClick={() => handleSort('longest')}
-                aria-label={`Longest hills first — Chaos level ${CHAOS_RATING['longest']} of 5`}
+                aria-label={`Longest hills first — Chaos level ${CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['longest'] ?? 0))]}`}
                 className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
                 <span
                   aria-hidden
                   className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['longest'] ?? 0))]}`}
                 >
-                  Chaos Level: {CHAOS_RATING['longest']}/5
+                  {CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['longest'] ?? 0))]}
                 </span>
                 <div className="font-medium text-white">Longest hills first</div>
                 <div className="text-sm text-gray-300">all 400s, then all 300s, etc</div>
@@ -570,14 +580,14 @@ export default function WorkoutBuilder({ distance, reps, setDistance, setReps, i
               <button
                 type="button"
                 onClick={() => handleSort('shortest')}
-                aria-label={`Shortest hills first — Chaos level ${CHAOS_RATING['shortest']} of 5`}
+                aria-label={`Shortest hills first — Chaos level ${CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['shortest'] ?? 0))]}`}
                 className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
                 <span
                   aria-hidden
                   className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['shortest'] ?? 0))]}`}
                 >
-                  Chaos Level: {CHAOS_RATING['shortest']}/5
+                  {CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['shortest'] ?? 0))]}
                 </span>
                 <div className="font-medium text-white">Shortest hills first</div>
                 <div className="text-sm text-gray-300">all 100s, then all 200s, etc</div>
@@ -585,14 +595,14 @@ export default function WorkoutBuilder({ distance, reps, setDistance, setReps, i
               <button
                 type="button"
                 onClick={() => handleSort('descending-ladder')}
-                aria-label={`Descending ladders — Chaos level ${CHAOS_RATING['descending-ladder']} of 5`}
+                aria-label={`Descending ladders — Chaos level ${CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['descending-ladder'] ?? 0))]}`}
                 className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
                 <span
                   aria-hidden
                   className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['descending-ladder'] ?? 0))]}`}
                 >
-                  Chaos Level: {CHAOS_RATING['descending-ladder']}/5
+                  {CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['descending-ladder'] ?? 0))]}
                 </span>
                 <div className="font-medium text-white">Descending ladders</div>
                 <div className="text-sm text-gray-300">400, 300, 200, 100, 400, 300...</div>
@@ -600,14 +610,14 @@ export default function WorkoutBuilder({ distance, reps, setDistance, setReps, i
               <button
                 type="button"
                 onClick={() => handleSort('ascending-ladder')}
-                aria-label={`Ascending ladders — Chaos level ${CHAOS_RATING['ascending-ladder']} of 5`}
+                aria-label={`Ascending ladders — Chaos level ${CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['ascending-ladder'] ?? 0))]}`}
                 className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
                 <span
                   aria-hidden
                   className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['ascending-ladder'] ?? 0))]}`}
                 >
-                  Chaos Level: {CHAOS_RATING['ascending-ladder']}/5
+                  {CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['ascending-ladder'] ?? 0))]}
                 </span>
                 <div className="font-medium text-white">Ascending ladders</div>
                 <div className="text-sm text-gray-300">100, 200, 300, 400, 100, 200...</div>
@@ -615,14 +625,14 @@ export default function WorkoutBuilder({ distance, reps, setDistance, setReps, i
               <button
                 type="button"
                 onClick={() => handleSort('grouped-random')}
-                aria-label={`Grouped Random — Chaos level ${CHAOS_RATING['grouped-random']} of 5`}
+                aria-label={`Grouped Random — Chaos level ${CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['grouped-random'] ?? 0))]}`}
                 className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
                 <span
                   aria-hidden
                   className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['grouped-random'] ?? 0))]}`}
                 >
-                  Chaos Level: {CHAOS_RATING['grouped-random']}/5
+                  {CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['grouped-random'] ?? 0))]}
                 </span>
                 <div className="font-medium text-white">Grouped Random</div>
                 <div className="text-sm text-gray-300">Do all repeats of the same distance together, but shuffle the distances</div>
@@ -630,14 +640,14 @@ export default function WorkoutBuilder({ distance, reps, setDistance, setReps, i
               <button
                 type="button"
                 onClick={() => handleSort('maximum-chaos')}
-                aria-label={`Maximum Chaos — Chaos level ${CHAOS_RATING['maximum-chaos']} of 5`}
+                aria-label={`Maximum Chaos — Chaos level ${CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['maximum-chaos'] ?? 0))]}`}
                 className="relative cursor-pointer w-full text-left rounded-md bg-gray-600 px-4 py-2 hover:bg-gray-500 focus:outline-2 focus:outline-indigo-500"
               >
                 <span
                   aria-hidden
                   className={`absolute top-2 right-3 text-[10px] pointer-events-none px-2 py-0.5 rounded ${CHAOS_BADGE_CLASS_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['maximum-chaos'] ?? 0))]}`}
                 >
-                  Chaos Level: {CHAOS_RATING['maximum-chaos']}/5
+                  {CHAOS_LABEL_BY_RATING[Math.max(0, Math.min(5, CHAOS_RATING['maximum-chaos'] ?? 0))]}
                 </span>
                 <div className="font-medium text-white font-serif">Maximum Chaos</div>
                 <div className="text-sm text-gray-300">Randomly shuffle everything</div>

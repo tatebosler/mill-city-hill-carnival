@@ -98,12 +98,12 @@ const CHAOS_BADGE_CLASS_BY_RATING = [
 
 // Descriptive labels for ratings 0..5
 const CHAOS_LABEL_BY_RATING = [
-  'extra lawful',
-  'lawful',
-  'somewhat lawful',
-  'somewhat chaotic',
-  'chaotic',
-  'extra chaotic',
+  'lawful good',
+  'lawful neutral',
+  'lawful evil',
+  'chaotic good',
+  'chaotic neutral',
+  'chaotic evil',
 ];
 
 function sortHills(hills: Hill[], type: SortType): Hill[] {
